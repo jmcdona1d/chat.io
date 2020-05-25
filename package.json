@@ -1,0 +1,9 @@
+{
+    "name": "char.io",
+    "version": "0.0.1",
+    "description": "anonymous chat room with socket.io",
+    "dependencies": {
+        "express": "^4.17.1",
+        "socket.io": "^2.3.0"
+    }
+}
