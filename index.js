@@ -7,14 +7,19 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    io.emit("chat message", "New User Joined Chat")
+    io.emit("user joined", socket.id)
     
     socket.on('chat message', (msg) => {
-        io.emit('chat message', msg);
+
+        const messageReturn = {
+          'message':msg,
+          'sender' :socket.id
+        }
+        io.emit('chat message', messageReturn);
     });
     
     socket.on('disconnect', ()=> {
-        console.log('user disconnected');
+        io.emit("user left", socket.id);
     });
 });
 
