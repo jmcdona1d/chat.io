@@ -1,9 +1,14 @@
 var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
+const redis = require('redis');
+
+const REDIS_PORT = process.env.REDISPORT||6379; 
+const cache = redis.createClient(REDIS_PORT);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
+  cache.setex("room", 3600, JSON.stringify(["a","b"]))
 });
 
 io.on('connection', (socket) => {
