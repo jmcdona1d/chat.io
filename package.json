@@ -2,6 +2,9 @@
     "name": "char.io",
     "version": "0.0.1",
     "description": "anonymous chat room with socket.io",
+    "scripts":{
+        "start":"nodemon index"
+    },
     "dependencies": {
         "express": "^4.17.1",
         "redis": "^3.0.2",

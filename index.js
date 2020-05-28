@@ -8,23 +8,50 @@ const cache = redis.createClient(REDIS_PORT);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
-  cache.setex("room", 3600, JSON.stringify(["a","b"]))
+  console.log(req.query.roomId)
 });
 
 io.on('connection', (socket) => {
-    io.emit("user joined", socket.id)
-    
-    socket.on('chat message', (msg) => {
+    //on first connection either create a room or get the current room data
+    cache.get("room", (err, data)=> {
+      if(err) throw err;
 
-        const messageReturn = {
-          'message':msg,
-          'sender' :socket.id
-        }
+      if(data==null){
+        console.log("empty")
+        var chatLog = [];
+      }
+
+      if(data!=null){
+        var chatLog = JSON.parse(data)
+        io.emit("fetch chatlog", chatLog)
+      }
+
+      const connectMessage = socket.id +" has joined the chat!";
+      chatLog.push(connectMessage)
+      io.emit("user joined", connectMessage)
+      cache.setex("room", 60, JSON.stringify(chatLog))
+    })
+
+    
+
+    socket.on('chat message', (msg) => {
+        const messageReturn = socket.id +": " +msg;
         io.emit('chat message', messageReturn);
+
+        cache.get("room", (err, chatLog) => {
+          if(err) throw err;
+
+          if(chatLog!==null){
+            chatLog = JSON.parse(chatLog)
+            chatLog.push(messageReturn)
+            cache.setex("room", 60, JSON.stringify(chatLog))
+          }
+        })
     });
     
     socket.on('disconnect', ()=> {
-        io.emit("user left", socket.id);
+        const messageReturn = socket.id +" has left the chat."
+        io.emit("user left", messageReturn);
     });
 });
 

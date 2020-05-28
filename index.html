@@ -31,13 +31,19 @@
           });
           socket.on('chat message', function(msg){
             console.log(msg)
-            $('#messages').append($('<li>').text(msg['sender'] +": "+ msg['message']));
+            $('#messages').append($('<li>').text(msg));
           });
-          socket.on('user joined', function(userName){
-            $('#messages').append($('<li>').text(userName +" has joined the chat!"));
+          socket.on('user joined', function(msg){
+            $('#messages').append($('<li>').text(msg));
           })
-          socket.on('user left', function(userName){
-            $('#messages').append($('<li>').text(userName +" has left the chat."));
+          socket.on('user left', function(msg){
+            $('#messages').append($('<li>').text(msg));
+          })
+          socket.on('fetch chatlog', function(chatLog){
+            $('#messages').empty()//for when reload
+            chatLog.forEach(function(chat){
+              $('#messages').append($('<li>').text(chat));
+            })
           })
         });
       </script>
