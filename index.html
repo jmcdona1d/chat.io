@@ -26,6 +26,7 @@
           $('form').submit(function(e){
             e.preventDefault();
             socket.emit('chat message', $('#message').val());
+            console.log(document.cookie)
             $('#message').val('');
             return false;
           });

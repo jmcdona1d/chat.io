@@ -1,14 +1,21 @@
 var app = require('express')();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
+var cookieParser = require('cookie-parser')
 const redis = require('redis');
 
 const REDIS_PORT = process.env.REDISPORT||6379; 
 const cache = redis.createClient(REDIS_PORT);
 
+app.use(cookieParser())
+
 app.get('/', (req, res) => {
+  res.cookie("cookie", "cookie", null)
+  const c = req.cookies.c
+  console.log(c)
   res.sendFile(__dirname + '/index.html');
   console.log(req.query.roomId)
+  
 });
 
 io.on('connection', (socket) => {
@@ -31,8 +38,6 @@ io.on('connection', (socket) => {
       io.emit("user joined", connectMessage)
       cache.setex("room", 60, JSON.stringify(chatLog))
     })
-
-    
 
     socket.on('chat message', (msg) => {
         const messageReturn = socket.id +": " +msg;
