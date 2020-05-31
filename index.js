@@ -26,8 +26,32 @@ io.on('connection', (socket) => {
 
     socket.on('connection request', (cookie) =>{
       console.log(cookie)
-       //on first connection either create a room or get the current room data
-      cache.get("room", (err, data)=> {
+      //on first connection either create a room or get the current room data
+      var room = "a";
+      cache.setex(socket.id, 60, cookie)
+      console.log(socket.id)
+      cache.get(cookie, (err,data)=>{
+        if(err) throw err;
+        
+        if(data!=null){
+          cache.get(data, (err, chatlog)=>{
+            if(err) throw err;
+
+            if(chatlog != null){
+              io.emit("fetch chatlog", JSON.parse(chatlog))
+              console.log("fetched")
+              return;
+            }
+
+            if(chatlog == null) console.log("no")
+          })
+        }
+
+        else{
+          cache.setex(cookie, 60, "a");
+        }
+      })
+      cache.get(room, (err, data)=> {
         if(err) throw err;
 
         if(data==null){
@@ -43,30 +67,50 @@ io.on('connection', (socket) => {
         const connectMessage = cookie +" has joined the chat!";
         chatLog.push(connectMessage)
         io.emit("user joined", connectMessage)
-        cache.setex("room", 60, JSON.stringify(chatLog))
+        cache.setex(room, 60, JSON.stringify(chatLog))
       })
     });
 
     socket.on('chat message', (pckg) => {
+      var room = "a"
       const packet =  JSON.parse(pckg)
       console.log(packet)
         const messageReturn = packet["cookie"] +": " +packet["message"];
         io.emit('chat message', messageReturn);
 
-        cache.get("room", (err, chatLog) => {
+        cache.get(room, (err, chatLog) => {
           if(err) throw err;
 
           if(chatLog!==null){
             chatLog = JSON.parse(chatLog)
             chatLog.push(messageReturn)
-            cache.setex("room", 60, JSON.stringify(chatLog))
+            cache.setex(room, 60, JSON.stringify(chatLog))
           }
         })
     });
     
     socket.on('disconnect', ()=> {
-        const messageReturn = socket.id +" has left the chat."
-        io.emit("user left", messageReturn);
+      const room = "a"
+      var user = "f"
+      cache.get(socket.id, (err, username) =>{
+        if(err) throw err;
+        
+        else if(username != null){
+          user = username;
+          const messageReturn = user +" has left the chat."
+          io.emit("user left", messageReturn);
+
+          cache.get(room, (err, chatLog) => {
+            if(err) throw err
+    
+            if(chatLog!==null){
+              chatLog = JSON.parse(chatLog)
+              chatLog.push(messageReturn)
+              cache.setex(room, 60, JSON.stringify(chatLog))
+            }
+          })
+        } 
+      });
     });
 });
 
