@@ -51,11 +51,10 @@ io.on('connection', (socket) => {
           if (err) throw err;
 
           if (data == null) {
-            console.log("empty")
             var chatLog = [];
           }
 
-          //send to just client that joined ?
+          //send to just client that joined (others have whole log already)
           if (data != null) {
             var chatLog = JSON.parse(data)
             io.to(socket.id).emit("fetch chatlog", chatLog)
@@ -64,17 +63,15 @@ io.on('connection', (socket) => {
           //send out connection message to room and chatlog and save chatlog
           const connectMessage = cookie + " has joined the chat!";
           chatLog.push(connectMessage)
-          console.log(room)
           io.in(room).emit("chat message", connectMessage)
           cache.setex(room, 62, JSON.stringify(chatLog))
-        }
-        )
+          cache.setex(socket.id, 200, cookie)
+        })
       }
     })
   });
 
   socket.on('chat message', (pckg) => {
-    var room = "a"
     const packet = JSON.parse(pckg)
     const username = packet["cookie"]//temporary until usernames are stored in cookie
 
@@ -102,22 +99,37 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const room = "a"
-    var user = "f"
+
+    //need to get username since we can't pass a cookie on disconnect
     cache.get(socket.id, (err, username) => {
       if (err) throw err;
 
       else if (username != null) {
-        user = username;
-        const messageReturn = user + " has left the chat."
-        io.emit("user left", messageReturn);
 
-        cache.get(room, (err, chatLog) => {
-          if (err) throw err
-          if (chatLog !== null) {
-            chatLog = JSON.parse(chatLog)
-            chatLog.push(messageReturn)
-            // cache.setex(room, 60, JSON.stringify(chatLog))
+        //get room name from username
+        cache.get(username, (err, room) => {
+          if (err) throw err;
+
+          else if (room != null) {
+
+            //socket leaves room, left chat is emitted to room and chatlog
+            socket.leave(room)
+            const messageReturn = username + " has left the chat."
+            io.in(room).emit("user left", messageReturn);
+
+            cache.get(room, (err, chatLog) => {
+              if (err) throw err
+
+              if (chatLog !== null) {
+                chatLog = JSON.parse(chatLog)
+                chatLog.push(messageReturn)
+                cache.setex(room, 60, JSON.stringify(chatLog))
+              }
+            })
+
+            //free up cache space once user no longer needed
+            cache.del(socket.id)
+            cache.del(username)
           }
         })
       }
