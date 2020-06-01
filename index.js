@@ -13,6 +13,11 @@ app.use(cookieParser())
 
 
 app.get('/', (req, res) => {
+  if (req.query.roomId == null) {
+    //throw error when no query params (prevent local server from crashing on error)
+    res.send("need room Id")
+    return
+  }
   var cookie = -1;
   if (req.cookies.cookie == null) {
     cookie = uuid()
@@ -22,10 +27,6 @@ app.get('/', (req, res) => {
 
   else {
     cookie = req.cookies.cookie;
-  }
-  if (req.query.roomId == null) {
-    res.send("need room Id")
-    return
   }
   res.sendFile(__dirname + '/index.html');
   cache.setex(cookie, 61, req.query.roomId)
@@ -82,7 +83,8 @@ io.on('connection', (socket) => {
       //echo the chat to the room's sockets and update the log
       else if (room != null) {
         const messageReturn = username + ": " + packet["message"];
-        io.in(room).emit('chat message', messageReturn);
+        socket.to(room).emit('chat message', messageReturn);
+        io.to(socket.id).emit("sent message", "You: " + packet["message"])
 
         cache.get(room, (err, chatLog) => {
           if (err) throw err;
@@ -115,7 +117,7 @@ io.on('connection', (socket) => {
             //socket leaves room, left chat is emitted to room and chatlog
             socket.leave(room)
             const messageReturn = username + " has left the chat."
-            io.in(room).emit("user left", messageReturn);
+            io.in(room).emit("chat message", messageReturn);
 
             cache.get(room, (err, chatLog) => {
               if (err) throw err
@@ -129,7 +131,6 @@ io.on('connection', (socket) => {
 
             //free up cache space once user no longer needed
             cache.del(socket.id)
-            cache.del(username)
           }
         })
       }

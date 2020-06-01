@@ -49,6 +49,11 @@
     #messages li:nth-child(odd) {
       background: #eee;
     }
+
+    .sentMessage {
+      text-align: right;
+      padding: 5px 10px;
+    }
   </style>
 </head>
 
@@ -78,8 +83,8 @@
         console.log(msg)
         $('#messages').append($('<li>').text(msg));
       });
-      socket.on('user left', function (msg) {
-        $('#messages').append($('<li>').text(msg));
+      socket.on('sent message', function (msg) {
+        $('#messages').append($('<li class="sentMessage">').text(msg));
       })
       socket.on('fetch chatlog', function (chatLog) {
         $('#messages').empty()//for when reload
