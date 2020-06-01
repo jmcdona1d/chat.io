@@ -6,120 +6,116 @@ const redis = require('redis');
 const uuid = require('uuid').v4;
 const usernameService = require('./services/usernameService')
 
-const REDIS_PORT = process.env.REDISPORT||6379; 
+const REDIS_PORT = process.env.REDISPORT || 6379;
 const cache = redis.createClient(REDIS_PORT);
 
 app.use(cookieParser())
 
 
 app.get('/', (req, res) => {
-  if(req.cookies.cookie == null){
-    res.cookie("cookie", uuid(), null)
+  var cookie = -1;
+  if (req.cookies.cookie == null) {
+    cookie = uuid()
+    res.cookie("cookie", cookie, null)
     //should set timeout as well
   }
-  console.log(req.cookies)
+
+  else {
+    cookie = req.cookies.cookie;
+  }
+
   res.sendFile(__dirname + '/index.html');
-  console.log(req.query.roomId)
-  
+  cache.setex(cookie, 61, req.query.roomId)
 });
 
 io.on('connection', (socket) => {
-  io.emit("connection request")
+  io.to(socket.id).emit("connection request")
 
-    socket.on('connection request', (cookie) =>{
-      console.log(cookie)
-      //on first connection either create a room or get the current room data
-      var room = "a";
-      const username = usernameService.getUserName();
-      cache.setex(socket.id, 60, username)
-      console.log(socket.id)
-      cache.get(cookie, (err,data)=>{
-        if(err) throw err;
-        
-        if(data!=null){
-          cache.get(data, (err, chatlog)=>{
-            if(err) throw err;
+  socket.on('connection request', (cookie) => {
+    //on first connection either create a room or get the current room data
+    //get roomID for cookie and assign socket to it
+    console.log(cookie);
+    cache.get(cookie, (err, data) => {
+      if (err) throw err;
 
-            if(chatlog != null){
-              io.emit("fetch chatlog", JSON.parse(chatlog))
-              console.log("fetched")
-              return;
-            }
+      if (data != null) {
+        room = data;
+        socket.join(room)
 
-            if(chatlog == null) console.log("no")
-          })
+
+        //see if room already has a chat log -> if no make one, if yes get it and send to client
+        cache.get(room, (err, data) => {
+          if (err) throw err;
+
+          if (data == null) {
+            console.log("empty")
+            var chatLog = [];
+          }
+
+          //send to just client that joined ?
+          if (data != null) {
+            var chatLog = JSON.parse(data)
+            io.to(socket.id).emit("fetch chatlog", chatLog)
+          }
+
+          //send out connection message to room and chatlog and save chatlog
+          const connectMessage = cookie + " has joined the chat!";
+          chatLog.push(connectMessage)
+          console.log(room)
+          io.in(room).emit("chat message", connectMessage)
+          cache.setex(room, 62, JSON.stringify(chatLog))
         }
+        )
+      }
+    })
+  });
 
-        else{
-          cache.setex(cookie, 60, "a");
-        }
-      })
-      cache.get(room, (err, data)=> {
-        if(err) throw err;
+  socket.on('chat message', (pckg) => {
+    var room = "a"
+    const packet = JSON.parse(pckg)
+    cache.get(socket.id, (err, username) => {
+      if (err) throw err;
+      else if (username != null) {
+        const messageReturn = username + ": " + packet["message"];
+        io.emit('chat message', messageReturn);
 
-        if(data==null){
-          console.log("empty")
-          var chatLog = [];
-        }
+        cache.get(room, (err, chatLog) => {
+          if (err) throw err;
 
-        if(data!=null){
-          var chatLog = JSON.parse(data)
-          io.emit("fetch chatlog", chatLog)
-        }
-
-        const connectMessage = username +" has joined the chat!";
-        chatLog.push(connectMessage)
-        io.emit("user joined", connectMessage)
-        cache.setex(room, 60, JSON.stringify(chatLog))
-      })
+          if (chatLog !== null) {
+            chatLog = JSON.parse(chatLog)
+            chatLog.push(messageReturn)
+            cache.setex(room, 63, JSON.stringify(chatLog))
+          }
+        })
+      }
     });
 
-    socket.on('chat message', (pckg) => {
-      var room = "a"
-      const packet =  JSON.parse(pckg)      
-      cache.get(socket.id, (err, username) =>{
-        if (err) throw err;
-        else if(username != null){
-          const messageReturn = username +": " +packet["message"];
-          io.emit('chat message', messageReturn);
+  });
 
-          cache.get(room, (err, chatLog) => {
-            if(err) throw err;
-    
-            if(chatLog!==null){
-              chatLog = JSON.parse(chatLog)
-              chatLog.push(messageReturn)
-              cache.setex(room, 60, JSON.stringify(chatLog))
-            }
-          })
-        }
-      });
-      
-    });
-    
-    socket.on('disconnect', ()=> {
-      const room = "a"
-      var user = "f"
-      cache.get(socket.id, (err, username) =>{
-        if(err) throw err;
-        
-        else if(username != null){
-          user = username;
-          const messageReturn = user +" has left the chat."
-          io.emit("user left", messageReturn);
+  socket.on('disconnect', () => {
+    const room = "a"
+    var user = "f"
+    cache.get(socket.id, (err, username) => {
+      if (err) throw err;
 
-          cache.get(room, (err, chatLog) => {
-            if(err) throw err
-    
-            if(chatLog!==null){
-              chatLog = JSON.parse(chatLog)
-              chatLog.push(messageReturn)
-              cache.setex(room, 60, JSON.stringify(chatLog))
-            }
-          })
-        } 
-      });
+      else if (username != null) {
+        user = username;
+        const messageReturn = user + " has left the chat."
+        io.emit("user left", messageReturn);
+
+        cache.get(room, (err, chatLog) => {
+          if (err) throw err
+
+          if (chatLog !== null) {
+            chatLog = JSON.parse(chatLog)
+            chatLog.push(messageReturn)
+            // cache.setex(room, 60, JSON.stringify(chatLog))
+          }
+        })
+      }
     });
+  });
 });
 
 http.listen(3000, () => {
