@@ -23,7 +23,10 @@ app.get('/', (req, res) => {
   else {
     cookie = req.cookies.cookie;
   }
-
+  if (req.query.roomId == null) {
+    res.send("need room Id")
+    return
+  }
   res.sendFile(__dirname + '/index.html');
   cache.setex(cookie, 61, req.query.roomId)
 });
@@ -73,11 +76,16 @@ io.on('connection', (socket) => {
   socket.on('chat message', (pckg) => {
     var room = "a"
     const packet = JSON.parse(pckg)
-    cache.get(socket.id, (err, username) => {
+    const username = packet["cookie"]//temporary until usernames are stored in cookie
+
+    //get the room from the cahce
+    cache.get(packet["cookie"], (err, room) => {
       if (err) throw err;
-      else if (username != null) {
+
+      //echo the chat to the room's sockets and update the log
+      else if (room != null) {
         const messageReturn = username + ": " + packet["message"];
-        io.emit('chat message', messageReturn);
+        io.in(room).emit('chat message', messageReturn);
 
         cache.get(room, (err, chatLog) => {
           if (err) throw err;
@@ -106,7 +114,6 @@ io.on('connection', (socket) => {
 
         cache.get(room, (err, chatLog) => {
           if (err) throw err
-
           if (chatLog !== null) {
             chatLog = JSON.parse(chatLog)
             chatLog.push(messageReturn)
