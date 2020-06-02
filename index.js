@@ -4,10 +4,14 @@ var io = require('socket.io')(http);
 var cookieParser = require('cookie-parser')
 const redis = require('redis');
 const uuid = require('uuid').v4;
+const jwt = require('jsonwebtoken')
 const usernameService = require('./services/usernameService')
 
 const REDIS_PORT = process.env.REDISPORT || 6379;
 const cache = redis.createClient(REDIS_PORT);
+
+const secret_key = "secret"
+const jwtExpiry = 300
 
 app.use(cookieParser())
 
@@ -19,9 +23,14 @@ app.get('/', (req, res) => {
     return
   }
   var cookie = -1;
+  var username = usernameService.getUserName()
   if (req.cookies.cookie == null) {
-    cookie = uuid()
-    res.cookie("cookie", cookie, null)
+    const token = jwt.sign({ username: username }, secret_key, {
+      algorithm: "HS256",
+      expiresIn: 200
+    })
+    console.log(token)
+    res.cookie("cookie", token, 200 * 1000)
     //should set timeout as well
   }
 
@@ -29,7 +38,7 @@ app.get('/', (req, res) => {
     cookie = req.cookies.cookie;
   }
   res.sendFile(__dirname + '/index.html');
-  cache.setex(cookie, 61, req.query.roomId)
+  cache.setex(username, 61, req.query.roomId)
 });
 
 io.on('connection', (socket) => {
@@ -38,38 +47,42 @@ io.on('connection', (socket) => {
   socket.on('connection request', (cookie) => {
     //on first connection either create a room or get the current room data
     //get roomID for cookie and assign socket to it
-    console.log(cookie);
-    cache.get(cookie, (err, data) => {
+    jwt.verify(cookie, secret_key, function (err, decoded) {
       if (err) throw err;
 
-      if (data != null) {
-        room = data;
-        socket.join(room)
+      cache.get(decoded['username'], (err, data) => {
+        if (err) throw err;
+
+        if (data != null) {
+          room = data;
+          socket.join(room)
 
 
-        //see if room already has a chat log -> if no make one, if yes get it and send to client
-        cache.get(room, (err, data) => {
-          if (err) throw err;
+          //see if room already has a chat log -> if no make one, if yes get it and send to client
+          cache.get(room, (err, data) => {
+            if (err) throw err;
 
-          if (data == null) {
-            var chatLog = [];
-          }
+            if (data == null) {
+              var chatLog = [];
+            }
 
-          //send to just client that joined (others have whole log already)
-          if (data != null) {
-            var chatLog = JSON.parse(data)
-            io.to(socket.id).emit("fetch chatlog", chatLog)
-          }
+            //send to just client that joined (others have whole log already)
+            if (data != null) {
+              var chatLog = JSON.parse(data)
+              io.to(socket.id).emit("fetch chatlog", chatLog)
+            }
 
-          //send out connection message to room and chatlog and save chatlog
-          const connectMessage = cookie + " has joined the chat!";
-          chatLog.push(connectMessage)
-          io.in(room).emit("chat message", connectMessage)
-          cache.setex(room, 62, JSON.stringify(chatLog))
-          cache.setex(socket.id, 200, cookie)
-        })
-      }
+            //send out connection message to room and chatlog and save chatlog
+            const connectMessage = decoded['username'] + " has joined the chat!";
+            chatLog.push(connectMessage)
+            io.in(room).emit("chat message", connectMessage)
+            cache.setex(room, 62, JSON.stringify(chatLog))
+            cache.setex(socket.id, 200, cookie)
+          })
+        }
+      })
     })
+
   });
 
   socket.on('chat message', (pckg) => {
