@@ -24,19 +24,18 @@ app.get('/', (req, res) => {
   }
   var cookie = -1;
   var username = usernameService.getUserName()
-  if (req.cookies.cookie == null) {
-    const token = jwt.sign({ username: username }, secret_key, {
-      algorithm: "HS256",
-      expiresIn: 200
-    })
-    console.log(token)
-    res.cookie("cookie", token, 200 * 1000)
-    //should set timeout as well
-  }
+  // if (req.cookies.cookie == null) {
+  const token = jwt.sign({ username: username }, secret_key, {
+    algorithm: "HS256",
+    expiresIn: 200
+  })
+  res.cookie("cookie", token, 200 * 1000)
+  //should set timeout as well
+  // }
 
-  else {
-    cookie = req.cookies.cookie;
-  }
+  // else {
+  //   cookie = req.cookies.cookie;
+  // }
   res.sendFile(__dirname + '/index.html');
   cache.setex(username, 61, req.query.roomId)
 });
@@ -77,7 +76,7 @@ io.on('connection', (socket) => {
             chatLog.push(connectMessage)
             io.in(room).emit("chat message", connectMessage)
             cache.setex(room, 62, JSON.stringify(chatLog))
-            cache.setex(socket.id, 200, cookie)
+            cache.setex(socket.id, 200, decoded['username'])
           })
         }
       })
@@ -87,28 +86,34 @@ io.on('connection', (socket) => {
 
   socket.on('chat message', (pckg) => {
     const packet = JSON.parse(pckg)
-    const username = packet["cookie"]//temporary until usernames are stored in cookie
 
-    //get the room from the cahce
-    cache.get(packet["cookie"], (err, room) => {
-      if (err) throw err;
+    //get username from cookie
+    jwt.verify(packet["cookie"], secret_key, function (err, decoded) {
+      if (err) throw err
 
-      //echo the chat to the room's sockets and update the log
-      else if (room != null) {
-        const messageReturn = username + ": " + packet["message"];
-        socket.to(room).emit('chat message', messageReturn);
-        io.to(socket.id).emit("sent message", "You: " + packet["message"])
+      const username = decoded['username']
 
-        cache.get(room, (err, chatLog) => {
-          if (err) throw err;
+      //get the room for the chat
+      cache.get(username, (err, room) => {
+        if (err) throw err;
 
-          if (chatLog !== null) {
-            chatLog = JSON.parse(chatLog)
-            chatLog.push(messageReturn)
-            cache.setex(room, 63, JSON.stringify(chatLog))
-          }
-        })
-      }
+        //echo the chat to the room's sockets and update the log
+        else if (room != null) {
+          const messageReturn = username + ": " + packet["message"];
+          socket.to(room).emit('chat message', messageReturn);
+          io.to(socket.id).emit("sent message", "You: " + packet["message"])
+
+          cache.get(room, (err, chatLog) => {
+            if (err) throw err;
+
+            if (chatLog !== null) {
+              chatLog = JSON.parse(chatLog)
+              chatLog.push(messageReturn)
+              cache.setex(room, 63, JSON.stringify(chatLog))
+            }
+          })
+        }
+      })
     });
 
   });
@@ -120,7 +125,6 @@ io.on('connection', (socket) => {
       if (err) throw err;
 
       else if (username != null) {
-
         //get room name from username
         cache.get(username, (err, room) => {
           if (err) throw err;
