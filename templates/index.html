@@ -7,13 +7,13 @@
 
 <body>
     <form action="">
-        <button>join room</button>
+        <input id="roomId"></input><button>join room</button>
     </form>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
     <script>
         $(function () {
             $('form').submit(function (e) {
-                window.location.href = "../chat/?roomId=test"
+                window.location.href = "../chat/?roomId=" + $('#roomId').val()
                 return false;
             });
         });

@@ -35,12 +35,12 @@ app.get('/chat', (req, res) => {
   // else {
   //   cookie = req.cookies.cookie;
   // }
-  res.sendFile(__dirname + '/chat.html');
+  res.sendFile(__dirname + '/templates/chat.html');
   cache.setex(username, 61, req.query.roomId)
 });
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html')
+  res.sendFile(__dirname + '/templates/index.html')
 })
 
 io.on('connection', (socket) => {
