@@ -3,7 +3,6 @@ var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 var cookieParser = require('cookie-parser')
 const redis = require('redis');
-const uuid = require('uuid').v4;
 const jwt = require('jsonwebtoken')
 const usernameService = require('./services/usernameService')
 
@@ -16,7 +15,7 @@ const jwtExpiry = 300
 app.use(cookieParser())
 
 
-app.get('/', (req, res) => {
+app.get('/chat', (req, res) => {
   if (req.query.roomId == null) {
     //throw error when no query params (prevent local server from crashing on error)
     res.send("need room Id")
@@ -27,7 +26,7 @@ app.get('/', (req, res) => {
   // if (req.cookies.cookie == null) {
   const token = jwt.sign({ username: username }, secret_key, {
     algorithm: "HS256",
-    expiresIn: 200
+    expiresIn: jwtExpiry
   })
   res.cookie("cookie", token, 200 * 1000)
   //should set timeout as well
@@ -36,9 +35,13 @@ app.get('/', (req, res) => {
   // else {
   //   cookie = req.cookies.cookie;
   // }
-  res.sendFile(__dirname + '/index.html');
+  res.sendFile(__dirname + '/chat.html');
   cache.setex(username, 61, req.query.roomId)
 });
+
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/index.html')
+})
 
 io.on('connection', (socket) => {
   io.to(socket.id).emit("connection request")
