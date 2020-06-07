@@ -70,7 +70,7 @@ io.on('connection', (socket) => {
 
             //send to just client that joined (others have whole log already)
             if (data != null) {
-              var chatLog = JSON.parse(data)
+              var chatLog = JSON.parse(data)["chatLog"]
               io.to(socket.id).emit("fetch chatlog", chatLog)
             }
 
@@ -78,7 +78,8 @@ io.on('connection', (socket) => {
             const connectMessage = decoded['username'] + " has joined the chat!";
             chatLog.push(connectMessage)
             io.in(room).emit("chat message", connectMessage)
-            cache.setex(room, 62, JSON.stringify(chatLog))
+            const roomData = { "locked": false, "chatLog": chatLog }
+            cache.setex(room, 62, JSON.stringify(roomData))
             cache.setex(socket.id, 200, decoded['username'])
           })
         }
@@ -106,13 +107,13 @@ io.on('connection', (socket) => {
           socket.to(room).emit('chat message', messageReturn);
           io.to(socket.id).emit("sent message", "You: " + packet["message"])
 
-          cache.get(room, (err, chatLog) => {
+          cache.get(room, (err, data) => {
             if (err) throw err;
 
-            if (chatLog !== null) {
-              chatLog = JSON.parse(chatLog)
-              chatLog.push(messageReturn)
-              cache.setex(room, 63, JSON.stringify(chatLog))
+            if (data !== null) {
+              roomData = JSON.parse(data)
+              roomData["chatLog"].push(messageReturn)
+              cache.setex(room, 63, JSON.stringify(roomData))
             }
           })
         }
@@ -139,13 +140,13 @@ io.on('connection', (socket) => {
             const messageReturn = username + " has left the chat."
             io.in(room).emit("chat message", messageReturn);
 
-            cache.get(room, (err, chatLog) => {
+            cache.get(room, (err, data) => {
               if (err) throw err
 
-              if (chatLog !== null) {
-                chatLog = JSON.parse(chatLog)
-                chatLog.push(messageReturn)
-                cache.setex(room, 60, JSON.stringify(chatLog))
+              if (data !== null) {
+                roomData = JSON.parse(data)
+                roomData["chatLog"].push(messageReturn)
+                cache.setex(room, 60, JSON.stringify(roomData))
               }
             })
 
