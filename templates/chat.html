@@ -59,7 +59,7 @@
 
 <body>
   <ul id="messages"></ul>
-  <button id="lock">Lock Room</button>
+  <button id="lockToggle">Lock Room</button>
   <form action="">
     <input id="message" autocomplete="off" /><button>Send</button>
   </form>
@@ -80,6 +80,9 @@
         $('#message').val('');
         return false;
       });
+      $('#lockToggle').click(function () {
+        socket.emit('toggle lock', $.cookie("cookie"))
+      })
       socket.on('chat message', function (msg) {
         console.log(msg)
         $('#messages').append($('<li>').text(msg));
@@ -92,6 +95,11 @@
         chatLog.forEach(function (chat) {
           $('#messages').append($('<li>').text(chat));
         })
+      })
+      socket.on('room locked', function () {
+        window.location.href = "/"
+        alert("Cannot join room - admin must unlock it first")
+        return false;
       })
     });
   </script>

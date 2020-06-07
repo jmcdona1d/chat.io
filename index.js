@@ -52,24 +52,29 @@ io.on('connection', (socket) => {
     jwt.verify(cookie, secret_key, function (err, decoded) {
       if (err) throw err;
 
-      cache.get(decoded['username'], (err, data) => {
+      cache.get(decoded['username'], (err, roomId) => {
         if (err) throw err;
 
-        if (data != null) {
-          room = data;
-          socket.join(room)
-
+        if (roomId != null) {
+          //socket.join(room)
 
           //see if room already has a chat log -> if no make one, if yes get it and send to client
-          cache.get(room, (err, data) => {
+          cache.get(roomId, (err, data) => {
             if (err) throw err;
 
             if (data == null) {
               var chatLog = [];
+              socket.join(roomId)
             }
 
             //send to just client that joined (others have whole log already)
             if (data != null) {
+              if (JSON.parse(data)["locked"]) {
+                console.log("f")
+                io.to(socket.id).emit("room locked")
+                return
+              }
+              socket.join(roomId)
               var chatLog = JSON.parse(data)["chatLog"]
               io.to(socket.id).emit("fetch chatlog", chatLog)
             }
@@ -77,9 +82,9 @@ io.on('connection', (socket) => {
             //send out connection message to room and chatlog and save chatlog
             const connectMessage = decoded['username'] + " has joined the chat!";
             chatLog.push(connectMessage)
-            io.in(room).emit("chat message", connectMessage)
+            io.in(roomId).emit("chat message", connectMessage)
             const roomData = { "locked": false, "chatLog": chatLog }
-            cache.setex(room, 62, JSON.stringify(roomData))
+            cache.setex(roomId, 62, JSON.stringify(roomData))
             cache.setex(socket.id, 200, decoded['username'])
           })
         }
@@ -119,8 +124,32 @@ io.on('connection', (socket) => {
         }
       })
     });
-
   });
+
+  socket.on('toggle lock', (cookie) => {
+    jwt.verify(cookie, secret_key, function (err, decoded) {
+      if (err) throw err
+
+      const username = decoded['username']
+
+      cache.get(username, (err, roomID) => {
+        if (err) throw err;
+
+        else if (roomID != null) {
+          cache.get(roomID, (err, data) => {
+            if (err) throw err;
+
+            else if (data != null) {
+              roomData = JSON.parse(data)
+              roomData['locked'] = !roomData['locked']
+              console.log(roomData['locked'])
+              cache.setex(roomID, 63, JSON.stringify(roomData))
+            }
+          })
+        }
+      })
+    })
+  })
 
   socket.on('disconnect', () => {
 
