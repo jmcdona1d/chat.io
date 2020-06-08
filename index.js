@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
             if (data != null) {
               if (JSON.parse(data)["locked"]) {
                 console.log("f")
-                io.to(socket.id).emit("room locked")
+                io.to(socket.id).emit("locked")
                 return
               }
               socket.join(roomId)
@@ -141,8 +141,10 @@ io.on('connection', (socket) => {
 
             else if (data != null) {
               roomData = JSON.parse(data)
-              roomData['locked'] = !roomData['locked']
+              const flag = roomData['locked']
+              roomData['locked'] = !flag
               console.log(roomData['locked'])
+              socket.broadcast.to(roomID).emit('toggle lock button', !flag);
               cache.setex(roomID, 63, JSON.stringify(roomData))
             }
           })

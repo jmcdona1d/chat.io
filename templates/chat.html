@@ -96,11 +96,15 @@
           $('#messages').append($('<li>').text(chat));
         })
       })
-      socket.on('room locked', function () {
+      socket.on('locked', function () {
         window.location.href = "/"
         alert("Cannot join room - admin must unlock it first")
         return false;
       })
+      socket.on('toggle lock button', function (flag) {
+        $('#lockToggle').prop("disabled", flag);
+      })
+
     });
   </script>
 </body>
