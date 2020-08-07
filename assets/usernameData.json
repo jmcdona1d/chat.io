@@ -1,16 +1,36 @@
 {
     "names": [
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l"
+        "Shy",
+        "Frightening",
+        "Adorable",
+        "Unwiedly",
+        "Splended",
+        "Chivalrous",
+        "Busting",
+        "Fearless",
+        "Enchanting",
+        "Maddening",
+        "Elite",
+        "Knowledgeable",
+        "Unusual",
+        "Ordinary",
+        "Spooky",
+        "Commical",
+        "Obtuse",
+        "Silly"
+    ],
+    "animals": [
+        "cow",
+        "chicken",
+        "duck",
+        "dog", 
+        "cat",
+        "koala",
+        "manatee",
+        "goose",
+        "squirrel",
+        "llama",
+        "goat",
+        "penguin"
     ]
 }
